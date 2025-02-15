@@ -11,13 +11,13 @@ public class PriceTier {
     private PriceModel priceModel;
 
     public PriceTier(int from, int to, BigDecimal priceValue, PriceModel priceModel) {
-        if (from > to || from < 0) {
-            throw new IllegalArgumentException("Invalid tier range.");
+        if (from > to || from < 0 || to < 0) {
+            throw new IllegalArgumentException("Invalid tier range: 'from' must be <= 'to' and non-negative.");
         }
         this.from = from;
         this.to = to;
-        this.priceValue = priceValue;
-        this.priceModel = priceModel;
+        this.priceValue = Objects.requireNonNull(priceValue, "priceValue can't be null"); // Validate priceValue
+        this.priceModel = Objects.requireNonNull(priceModel, "priceModel can't be null");
     }
 
     public int getFrom() {
@@ -25,6 +25,8 @@ public class PriceTier {
     }
 
     public void setFrom(int from) {
+        if(from < 0 || from > to)
+            throw new IllegalArgumentException("'from' must be <= 'to' and non-negative.");
         this.from = from;
     }
 
@@ -33,6 +35,8 @@ public class PriceTier {
     }
 
     public void setTo(int to) {
+        if(to < 0 || to < from)
+            throw new IllegalArgumentException("'to' must be >= 'to' and non-negative.");
         this.to = to;
     }
 
@@ -61,12 +65,14 @@ public class PriceTier {
         if (this == obj) return true;
         if (obj == null || getClass() != obj.getClass()) return false;
         PriceTier that = (PriceTier) obj;
-        return this.from == that.from && this.to == that.to && this.priceValue.equals(that.priceValue);
+        return from == that.from && to == that.to
+                && Objects.equals(priceValue, that.priceValue)
+                && priceModel == that.priceModel;
     }
 
     @Override
     public int hashCode() {
-        return Objects.hash(from, to, priceValue);
+        return Objects.hash(from, to, priceValue, priceModel);
     }
 
 }

@@ -1,39 +1,26 @@
 package org.example.pojos;
 
 import org.example.enums.PriceModel;
-
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 
 public class PriceConfig {
 
     private String productId;
     private List<PriceTier> priceTiers;
 
-    // Constructor for bulk creation of priceTiers
-    public PriceConfig(String product, List<PriceTier> priceTiers) {
-        if (product == null || product.isEmpty()) {
-            throw new IllegalArgumentException("productId can't be null or empty");
-        }
-        this.productId = product;
-        if (priceTiers == null || priceTiers.isEmpty()) {
-            throw new IllegalArgumentException("priceTiers can't be empty");
-        }
-        this.priceTiers = new ArrayList<>(priceTiers);
-        Collections.sort(this.priceTiers, Comparator.comparingInt(pT -> pT.getFrom()));
-        validatePriceTiers();
+    public PriceConfig(String productId) {
+        this(productId, new ArrayList<>());
     }
 
-    // Constructor for adding priceTiers one at a time
-    public PriceConfig(String product) {
-        if (product == null || product.isEmpty()) {
-            throw new IllegalArgumentException("productId can't be null or empty");
-        }
-        this.productId = product;
-        this.priceTiers = new ArrayList<>();
+    public PriceConfig(String productId, List<PriceTier> priceTiers) {
+        this.productId = validateProductId(productId);
+        this.priceTiers = new ArrayList<>(priceTiers); // Create a copy to prevent external modification
+
+        sortAndValidateTiers();
     }
 
     public String getProductId() {
@@ -41,65 +28,86 @@ public class PriceConfig {
     }
 
     public void setProductId(String productId) {
-        this.productId = productId;
+        this.productId = validateProductId(productId);
     }
 
     public List<PriceTier> getPriceTiers() {
-        return priceTiers;
+        return Collections.unmodifiableList(priceTiers); // Return an unmodifiable list
     }
 
     public void setPriceTiers(List<PriceTier> priceTiers) {
-        this.priceTiers = priceTiers;
-        Collections.sort(this.priceTiers, Comparator.comparingInt(pT -> pT.getFrom()));
-        validatePriceTiers();
+        this.priceTiers = new ArrayList<>(priceTiers);
+        sortAndValidateTiers();
     }
 
     public void addPriceTier(PriceTier priceTier) {
-        int i = 0;
-        while (i < priceTiers.size() && priceTiers.get(i).getFrom() < priceTier.getFrom()) {
-            i++;
-        }
-        priceTiers.add(i, priceTier);
-        validatePriceTiers();
+        Objects.requireNonNull(priceTier, "priceTier can't be null");
+        priceTiers.add(priceTier);
+        sortAndValidateTiers();
     }
 
     public void removePriceTier(PriceTier priceTier) {
-        if (priceTier == null) {
-            throw new IllegalArgumentException("PriceTier to remove cannot be null.");
+        Objects.requireNonNull(priceTier, "priceTier can't be null");
+        if (!priceTiers.contains(priceTier)) {
+            throw new IllegalArgumentException("Price tier not found.");
+        }
+        if (priceTiers.size() <= 1) {
+            throw new IllegalStateException("Cannot remove the last tier.");
         }
 
-        // Check if the PriceTier exists in the list before attempting to remove it
-        if (!priceTiers.contains(priceTier)) {
-            throw new IllegalArgumentException("PriceTier does not exist in the configuration.");
+        priceTiers.remove(priceTier);
+        sortAndValidateTiers();
+    }
+
+    private String validateProductId(String productId) {
+        if (productId == null || productId.isBlank()) {
+            throw new IllegalArgumentException("productId can't be null or empty");
         }
-        // Remove the PriceTier from the list if it's in first or last position
-        if(priceTiers.getFirst().equals(priceTier) || priceTiers.getLast().equals(priceTier))
-            priceTiers.remove(priceTier);
-        else {
-            throw new IllegalArgumentException("You can remove only from first or last position");
-        }
+        return productId;
     }
 
 
-    public void validatePriceTiers() {
+    private void sortAndValidateTiers() {
+        if(priceTiers.isEmpty())
+            return;
+        if(priceTiers.size() > 1)
+            priceTiers.sort(Comparator.comparingInt(PriceTier::getFrom));
+        validateTiers();
+    }
+
+    private void validateTiers() {
         if (priceTiers.isEmpty()) {
             throw new IllegalArgumentException("priceTiers can't be empty");
         }
 
         boolean hasGraduated = priceTiers.get(0).getPriceModel() == PriceModel.GRADUATED;
-        for (PriceTier tier : priceTiers) {
-            if (tier.getPriceModel() == PriceModel.GRADUATED != hasGraduated) {
-                throw new IllegalArgumentException("You can't have graduated and other price models together");
-            }
-        }
 
-        PriceTier prev = priceTiers.get(0);
-        for (int i = 1; i < priceTiers.size(); i++) {
-            PriceTier curr = priceTiers.get(i);
-            if (prev.getTo() >= curr.getFrom() || curr.getFrom() != prev.getTo() + 1) {
-                throw new IllegalArgumentException("Invalid price configuration. Please check that ranges are contiguous and non-overlapping");
+        for (int i = 0; i < priceTiers.size(); i++) {
+            PriceTier tier = priceTiers.get(i);
+            if (tier.getPriceModel() == PriceModel.GRADUATED != hasGraduated) {
+                throw new IllegalArgumentException("All price models must be the same (either GRADUATED or non-GRADUATED)");
             }
-            prev = curr;
+
+            if (i > 0) {
+                PriceTier prevTier = priceTiers.get(i - 1);
+                if (tier.getFrom() != prevTier.getTo() + 1) {
+                    throw new IllegalArgumentException("Price tiers must be contiguous and non-overlapping.");
+                }
+            }
         }
+    }
+
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) return true;
+        if (o == null || getClass() != o.getClass()) return false;
+        PriceConfig that = (PriceConfig) o;
+        return Objects.equals(productId, that.productId) && Objects.equals(priceTiers, that.priceTiers);
+    }
+
+    @Override
+    public int hashCode() {
+        return Objects.hash(productId, priceTiers);
     }
 }
