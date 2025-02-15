@@ -581,4 +581,14 @@ class PriceCalculatorTest {
         assertEquals("Price tiers must be contiguous and non-overlapping.", thrown.getMessage());
     }
 
+    @Test
+    public void testWithEmptyPriceTiers() {
+        PriceConfig config = new PriceConfig("product30");
+
+        IllegalArgumentException thrown = assertThrows(IllegalArgumentException.class, () -> {
+            calculator.calculatePrice(config, 10);
+        });
+        assertEquals("priceTiers cannot be null or empty.", thrown.getMessage());
+    }
+
 }

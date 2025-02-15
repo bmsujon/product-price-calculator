@@ -45,6 +45,9 @@ public class PriceCalculator {
         if (priceConfig == null) {
             throw new IllegalArgumentException("Price configuration cannot be null.");
         }
+        if(priceConfig.getPriceTiers() == null || priceConfig.getPriceTiers().isEmpty()) {
+            throw new IllegalArgumentException("priceTiers cannot be null or empty.");
+        }
     }
 
     private void validateQuantityRange(List<PriceTier> tiers, int quantity) {
