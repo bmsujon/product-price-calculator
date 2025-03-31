@@ -1,5 +1,6 @@
 package org.example;
 
+import org.example.calculator.PriceCalculator;
 import org.example.enums.CurrencyEnum;
 import org.example.enums.PriceModel;
 import org.example.pojos.PriceConfig;
