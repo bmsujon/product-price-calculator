@@ -1,8 +1,10 @@
-package org.example;
+package org.example.calculator;
 
 import org.example.enums.PriceModel;
 import org.example.pojos.PriceConfig;
 import org.example.pojos.PriceTier;
+import org.example.calculator.impl.GraduatedPriceCalculator;
+import org.example.calculator.intf.PriceModelCalculator;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -29,7 +31,8 @@ public class PriceCalculator {
         validateQuantityRange(tiers, quantity);
 
         if (tiers.get(0).getPriceModel() == PriceModel.GRADUATED) {
-            return calculateGraduatedPrice(tiers, quantity);
+            GraduatedPriceCalculator graduatedCalculator = PriceModelCalculatorFactory.getGraduatedModelCalculator();
+            return graduatedCalculator.calculateGraduatedPrice(tiers, quantity);
         } else {
             return calculateNonGraduatedPrice(tiers, quantity);
         }
@@ -43,7 +46,7 @@ public class PriceCalculator {
 
     private void validatePriceConfig(PriceConfig priceConfig) {
         if (priceConfig == null) {
-            throw new IllegalArgumentException("Price configuration cannot be null.");
+            throw new IllegalArgumentException("priceConfig cannot be null.");
         }
         if(priceConfig.getPriceTiers() == null || priceConfig.getPriceTiers().isEmpty()) {
             throw new IllegalArgumentException("priceTiers cannot be null or empty.");
@@ -61,34 +64,10 @@ public class PriceCalculator {
         }
     }
 
-
-    private BigDecimal calculateGraduatedPrice(List<PriceTier> tiers, int quantity) {
-        BigDecimal total = BigDecimal.ZERO;
-        int remaining = quantity;
-
-        for (PriceTier tier : tiers) {
-            if (remaining <= 0) break;
-
-            int tierQuantity = Math.min(remaining, tier.getTo() - tier.getFrom() + 1);
-
-            // Handle the edge case where the first tier doesn't start at 1.
-            if (tiers.indexOf(tier) == 0 && tier.getFrom() != 1) {
-                tierQuantity = Math.min(remaining, tier.getTo());
-            }
-
-            total = total.add(tier.getPriceValue().multiply(BigDecimal.valueOf(tierQuantity)));
-            remaining -= tierQuantity;
-        }
-        return total;
-    }
-
     private BigDecimal calculateNonGraduatedPrice(List<PriceTier> tiers, int quantity) {
         PriceTier tier = findApplicableTier(tiers, quantity);
-        return switch (tier.getPriceModel()) {
-            case FLAT -> tier.getPriceValue();
-            case VOLUME -> tier.getPriceValue().multiply(BigDecimal.valueOf(quantity));
-            default -> throw new IllegalArgumentException("Unsupported pricing model.");
-        };
+        PriceModelCalculator calculator = PriceModelCalculatorFactory.getPriceModelCalculator(tier.getPriceModel());
+        return calculator.calculatePrice(tier, quantity);
     }
 
     public PriceTier findApplicableTier(List<PriceTier> tiers, int quantity) {
@@ -109,6 +88,6 @@ public class PriceCalculator {
             }
         }
 
-        throw new IllegalArgumentException("No applicable tier found for the given quantity.");
+        throw new IllegalArgumentException("No applicable tier found for the quantity: " + quantity);
     }
 }
